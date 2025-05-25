@@ -285,13 +285,23 @@ class ExpenseController extends BaseController
 
         $csvFile = $uploadedFiles['csv'];
         //error_log('Uploaded file size: ' . $csvFile->getSize());
+
         try {
+            $importedCount = $this->expenseService->importCsv($user, $csvFile);
+            $_SESSION['flash_success'] = "Successfully imported $importedCount expense(s).";
+            return $response->withHeader('Location', '/expenses')->withStatus(302);
+        } catch (\Exception $e) {
+            $_SESSION['flash_error'] = 'Import failed: ' . $e->getMessage();
+            return $response->withHeader('Location', '/expenses')->withStatus(302);
+        }
+
+        /* try {
             $this->expenseService->importCsv($user, $csvFile);
             return $response->withHeader('Location', '/expenses')->withStatus(302);
         } catch (\Exception $e) {
             $response->getBody()->write('Import failed: ' . $e->getMessage());
             return $response->withStatus(500);
-        }
+        } */
     }
 
 
