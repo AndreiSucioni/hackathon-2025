@@ -8,6 +8,7 @@ use App\Domain\Repository\ExpenseRepositoryInterface;
 use App\Domain\Repository\UserRepositoryInterface;
 use App\Infrastructure\Persistence\PdoExpenseRepository;
 use App\Infrastructure\Persistence\PdoUserRepository;
+use App\Domain\Service\AlertGenerator;
 use DI\ContainerBuilder;
 use Monolog\Handler\StreamHandler;
 use Monolog\Level;
@@ -26,6 +27,11 @@ class Kernel
 {
     public static function createApp(): App
     {
+        $dotenvPath = realpath(__DIR__ . '/../');
+        if (file_exists($dotenvPath . '/.env')) {
+            $dotenv = \Dotenv\Dotenv::createImmutable($dotenvPath);
+            $dotenv->load();
+        }
         // Configure the DI container builder and build the DI container
         $builder = new ContainerBuilder();
         $builder->useAutowiring(true);  // Enable autowiring explicitly
@@ -48,7 +54,12 @@ class Kernel
             PDO::class                        => factory(function () {
                 static $pdo = null;
                 if ($pdo === null) {
-                    $pdo = new PDO('sqlite:'.$_ENV['DB_PATH']);
+                    $path = realpath(__DIR__ . '/../' . $_ENV['DB_PATH']);
+                     if (!$path) {
+                        throw new \RuntimeException("Database file not found: " . $_ENV['DB_PATH']);
+                    }
+
+                    $pdo = new PDO('sqlite:' . realpath(__DIR__ . '/../' . $_ENV['DB_PATH']));
                     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
                 }
@@ -59,6 +70,15 @@ class Kernel
             // Map interfaces to concrete implementations
             UserRepositoryInterface::class    => autowire(PdoUserRepository::class),
             ExpenseRepositoryInterface::class => autowire(PdoExpenseRepository::class),
+            AlertGenerator::class => function (\Psr\Container\ContainerInterface $c) {
+                $budgetsJson = $_ENV['CATEGORY_BUDGETS'] ?? '{}';
+                $budgets = json_decode($budgetsJson, true) ?? [];
+
+                return new AlertGenerator(
+                    $c->get(ExpenseRepositoryInterface::class),
+                    $budgets
+                );
+            },
         ]);
         $container = $builder->build();
 

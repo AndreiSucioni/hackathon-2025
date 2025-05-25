@@ -5,6 +5,8 @@ declare(strict_types=1);
 // initializing class autoloader
 require __DIR__.'/../vendor/autoload.php';
 
+session_start(); //andrei
+
 use App\Kernel;
 use Dotenv\Dotenv;
 

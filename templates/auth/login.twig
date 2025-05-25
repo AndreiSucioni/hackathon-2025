@@ -1,11 +1,21 @@
 {% extends 'layout.twig' %}
+
 {% block title %}Login{% endblock %}
+
 {% block content %}
     <h1 class="text-2xl font-bold mb-4">Login</h1>
+
+    {# Aici afișăm eroarea generală dacă există #}
+    {% if errors.general %}
+        <div class="mb-4 text-red-500 font-semibold">
+            {{ errors.general }}
+        </div>
+    {% endif %}
+
     <form action="/login" method="POST" class="max-w-sm mx-auto">
         <div class="mb-4">
             <label for="username" class="block text-gray-400 text-sm font-bold mb-2">Username</label>
-            <input type="text" id="username" name="username" required
+            <input type="text" id="username" name="username" value="{{ old.username|default('') }}" required
                    class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-400 leading-tight focus:outline-none focus:shadow-outline">
         </div>
         <div class="mb-6">
