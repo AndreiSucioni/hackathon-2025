@@ -36,7 +36,6 @@ class MonthlySummaryService
 
         $totals = $this->expenses->sumAmountsByCategory($criteria);
 
-        // Ca să calculezi și procentajul pentru fiecare categorie:
         $totalExpenditure = $this->computeTotalExpenditure($user, $year, $month);
 
         $result = [];
@@ -62,7 +61,6 @@ class MonthlySummaryService
 
         $averages = $this->expenses->averageAmountsByCategory($criteria);
 
-        // Formatăm datele la fel ca la totaluri, doar cu valoarea medie (fără procentaj):
         $result = [];
         foreach ($averages as $category => $avgValue) {
             $result[$category] = ['value' => $avgValue];

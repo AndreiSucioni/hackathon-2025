@@ -56,6 +56,11 @@ class ExpenseController extends BaseController
 
         $pagesCount = (int)ceil($total / $pageSize);
 
+        $flashSuccess = $_SESSION['flash_success'] ?? null;
+        $flashError = $_SESSION['flash_error'] ?? null;
+
+        unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+    
         return $this->render($response, 'expenses/index.twig', [
             'expenses' => $expenses,
             'page'     => $page,
@@ -64,7 +69,9 @@ class ExpenseController extends BaseController
             'pagesCount' => $pagesCount,
             'year' => $year,
             'month' => $month,
-            'years' => $years,    
+            'years' => $years,  
+            'flash_success' => $flashSuccess,
+            'flash_error' => $flashError,  
         ]);
 
     }
@@ -147,7 +154,7 @@ class ExpenseController extends BaseController
         $expenseId = (int)($routeParams['id'] ?? 0);
 
         $expense = $this->expenseService->findId($expenseId);
-//var_dump($currentUser);
+        //var_dump($currentUser);
         if (!$expense) {
             return $response->withStatus(404); 
         }
@@ -234,15 +241,25 @@ class ExpenseController extends BaseController
         $expense = $this->expenseService->findId($expenseId);
 
         if (!$expense) {
-            return $response->withStatus(404)->withBody('Expense not found');
+            //return $response->withStatus(404)->withBody('Expense not found');
+             $_SESSION['flash_error'] = 'Expense not found.';
+            return $response
+            ->withStatus(302)
+            ->withHeader('Location', '/expenses');
         }
 
         $currentUser = $this->getCurrentUser();
          if ($expense->getUserId() !== $currentUser->id) {
-            return $response->withStatus(403);
+            //return $response->withStatus(403);
+            $_SESSION['flash_error'] = 'You dont have the permision to delete.';
+            return $response
+            ->withStatus(302)
+            ->withHeader('Location', '/expenses');
         }
         
         $this->expenseService->delete($expenseId);
+
+         $_SESSION['flash_success'] = 'Expense was deleted.';
 
         return $response
             ->withStatus(302)

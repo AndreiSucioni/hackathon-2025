@@ -108,60 +108,118 @@ class ExpenseService
     $validCategories = ['Groceries', 'Transport', 'Entertainment', 'Utilities'];
     $importedCount = 0;
 
+    $logPath = 'C:/Users/andre/Desktop/intership/hackathon-2025/var/expense_import.log';
+    $logFile = fopen($logPath, 'a');
+    /* if ($logFile === false) {
+        throw new \RuntimeException("Nu se poate deschide fișierul de log $logPath");
+    } */
+    fwrite($logFile, "=== Starting CSV import at " . date('Y-m-d H:i:s') . " ===\n");
+
     $stream = $csvFile->getStream();
     $contents = $stream->getContents();
 
-    // Normalizează line endings
     $contents = str_replace(["\r\n", "\r"], "\n", $contents);
     $lines = explode("\n", $contents);
+
+    $seenRows = [];
     //error_log("CSV contents:\n" . $contents);
+    //error_log("Total lines in CSV: " . count($lines));
     foreach ($lines as $lineNumber => $line) {
-        try {
-            $line = trim($line);
-            if ($line === '') {
-                continue; 
+         //error_log("Processing line " . ($lineNumber + 1) . ": $line");
+            try {
+                $line = trim($line);
+                if ($line === '') {
+                    //error_log("Skipped empty line " . ($lineNumber + 1));
+                    fwrite($logFile, "Line " . ($lineNumber + 1) . ": Skipped empty line\n");
+                    continue; 
+                }
+                
+                $row = str_getcsv($line, ',');
+
+                //$row = str_getcsv($line, "\t");
+                $row = array_map('trim', $row);
+                //error_log("Parsed CSV row: " . print_r($row, true));
+             
+
+                if (count($row) !== 4) {
+                    //error_log("Invalid column count on line " . ($lineNumber + 1) . ": " . count($row));
+                    throw new \Exception("Invalid column count (" . count($row) . ")");
+                    //error_log("Row reparsed (tab): " . print_r($row, true));
+                }
+
+                [$dateStr, $amountStr, $description, $category] = $row;
+                //error_log("Parsed values: date=$dateStr, amount=$amountStr, description=$description, category=$category");
+
+                $dateFormats = ['Y-m-d H:i:s', 'n/j/Y H:i', 'Y-m-d'];
+
+                $date = false;
+                foreach ($dateFormats as $format) {
+                    $date = \DateTimeImmutable::createFromFormat($format, $dateStr);
+                    if ($date !== false) {
+                        break;
+                    }
+                }
+                if ($date === false) {
+                    throw new \Exception("Invalid date format: '$dateStr'");
+                }
+
+                if (!is_numeric($amountStr)) {
+                    throw new \Exception("Invalid amount: '$amountStr'");
+                }
+
+               
+
+                if ($description === null) {
+                    $description = '(no description)';
+                }
+
+                if (!in_array($category, $validCategories, true)) {
+                    //throw new \Exception("Unknown category: '$category'");
+                    fwrite($logFile, "Line " . ($lineNumber + 1) . ": Unknown category '$category'\n");
+                    continue;
+                }
+
+
+                $amount = (float)$amountStr;
+ //error_log("Calling create() with: amount=$amount, description=$description, date=$dateStr, category=$category");
+                $key = $date->format('Y-m-d H:i:s') . '|' . ((int)round($amount * 100)) . '|' . $description . '|' . $category;
+                if (isset($seenRows[$key])) {
+                    //error_log("Skipped duplicate row in CSV on line " . ($lineNumber + 1));
+                    fwrite($logFile, "Line " . ($lineNumber + 1) . ": Skipped duplicate row in CSV\n");
+                    continue;
+                }
+                $seenRows[$key] = true;
+
+                if ($this->expenses->exists([
+                    'user_id' => $user->id,
+                    'date' => $date->format('Y-m-d H:i:s'),
+                    'description' => $description,
+                    'amount_cents' => (int)round($amount * 100),
+                    'category' => $category,
+                ])) {
+                    //error_log("Skipped duplicate expense in DB on line " . ($lineNumber + 1));
+                    fwrite($logFile, "Line " . ($lineNumber + 1) . ": Skipped duplicate expense in DB\n");
+                    continue;
+                }
+//error_log("Calling create() with: amount=$amount, description=$description, date=" . $date->format('Y-m-d H:i:s') . ", category=$category");
+
+                $this->create($user, $amount, $description, $date, $category);
+                //error_log("Line " . ($lineNumber + 1) . " imported successfully");
+                 fwrite($logFile, "Line " . ($lineNumber + 1) . ": Imported successfully\n");
+                $importedCount++;
+  //error_log("Line $lineNumber imported successfully");
+            } catch (\Throwable $e) {
+                  //error_log("Skipped line " . ($lineNumber + 1) . ": " . $e->getMessage());
+                   fwrite($logFile, "Line " . ($lineNumber + 1) . ": Skipped due to error: " . $e->getMessage() . "\n");
+                continue;
             }
-            
-            $row = str_getcsv($line, ',');
-
-            //$row = str_getcsv($line, "\t");
-            $row = array_map('trim', $row);
-
-            if (count($row) !== 4) {
-                throw new \Exception("Invalid column count (" . count($row) . ")");
-            }
-
-            [$dateStr, $amountStr, $description, $category] = $row;
-
-            $date = \DateTimeImmutable::createFromFormat('n/j/Y H:i', $dateStr);
-            if (!$date) {
-                throw new \Exception("Invalid date format: '$dateStr'");
-            }
-
-            if (!is_numeric($amountStr)) {
-                throw new \Exception("Invalid amount: '$amountStr'");
-            }
-
-            if (empty($description)) {
-                throw new \Exception("Empty description");
-            }
-
-            if (!in_array($category, $validCategories, true)) {
-                throw new \Exception("Unknown category: '$category'");
-            }
-
-            $amount = (float)$amountStr;
-            $this->create($user, $amount, $description, $date, $category);
-            $importedCount++;
-
-        } catch (\Throwable $e) {
-            error_log("Skipped line " . ($lineNumber + 1) . ": " . $e->getMessage());
-            continue;
         }
-    }
 
-    return $importedCount;
-}
+        fwrite($logFile, "=== Finished import. Total imported: $importedCount ===\n\n");
+        fclose($logFile);
+
+        return $importedCount;
+    }
 
 
     public function findId(int $id): ?Expense

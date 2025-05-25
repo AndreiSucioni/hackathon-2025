@@ -16,6 +16,7 @@ class AlertGenerator
         array $categoryBudgets
     ) {
          $this->categoryBudgets = $categoryBudgets;
+          //error_log("Constructor AlertGenerator - Bugete primite: " . print_r($this->categoryBudgets, true));
     }
     // TODO: refactor the array below and make categories and their budgets configurable in .env
     // Hint: store them as JSON encoded in .env variable, inject them manually in a dedicated service,
@@ -31,7 +32,7 @@ class AlertGenerator
     {
         // TODO: implement this to generate alerts for overspending by category
         $alerts = [];
-
+        //error_log("Bugete: " . print_r($this->categoryBudgets, true));
         foreach ($this->categoryBudgets as $category => $budget) {
             $criteria = [
                 'user_id' => $user->id,
@@ -42,7 +43,7 @@ class AlertGenerator
 
             $spentByCategory = $this->expenseRepository->sumAmountsByCategory($criteria);
             $spent = $spentByCategory[$category] ?? 0.0;
-
+ 
             if ($spent > $budget) {
                 $alerts[] = sprintf(
                     "⚠ %s budget exceeded by €%.2f",
@@ -50,8 +51,10 @@ class AlertGenerator
                     $spent - $budget
                 );
             }
+            //error_log("Sume pe categorii: " . print_r($spentByCategory, true));
         }
-
+   
+   
         return $alerts;
     }
 

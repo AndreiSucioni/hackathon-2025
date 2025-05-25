@@ -43,12 +43,11 @@ class DashboardController extends BaseController
         $year = isset($queryParams['year']) ? (int)$queryParams['year'] : (int)date('Y');
         $month = isset($queryParams['month']) ? (int)$queryParams['month'] : (int)date('n');
 
-        // Exemplu: apelează serviciul tău MonthlySummaryService
+        
         $totalForMonth = $this->monthlySummaryService->computeTotalExpenditure($user, $year, $month);
         $totalsForCategories = $this->monthlySummaryService->computePerCategoryTotals($user, $year, $month);
         $averagesForCategories = $this->monthlySummaryService->computePerCategoryAverages($user, $year, $month);
 
-        // Alertele: presupunem că ai un AlertGeneratorService cu funcția generateAlerts(user, year, month)
         $alerts = $this->alertGenerator->generate($user, $year, $month);
 
         $years = $this->expenseService->listExpenditureYears($user);
